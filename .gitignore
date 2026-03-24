@@ -1,0 +1,61 @@
+# MATLAB
+*.mat
+*.asv
+*.mexw64
+*.mexmaci64
+*.mexa64
+*.o
+*.so
+
+# Verilog/Simulation
+*.vcd
+*.wdb
+*.vpd
+*.fsdb
+*.dump
+*.vvp
+*.wlf
+transcript
+modelsim.ini
+*.mpf
+*.mti
+sim_output/
+xsim.log
+xsim.dir/
+verilog/db/
+verilog/inremental_db/
+verilog/incremental_db/
+verilog/output_files/
+
+# Quartus generated artifacts
+*.sof
+*.pof
+*.jic
+*.rbf
+*.cdf
+*.rpt
+*.summary
+*.qws
+
+# Xilinx
+.Xil/
+*.jou
+*.log
+xo
+xo.log
+vivado_pid*.str
+
+# Synopsys
+work/
+*.db
+.synopsys_dc.setup
+
+# General
+*.swp
+*.swo
+*~
+.DS_Store
+*.pdf
+!docs/*.pdf
+
+VLISFir.txt
