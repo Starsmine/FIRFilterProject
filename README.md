@@ -174,41 +174,6 @@ The 3 stage serial design I think is the best design for meeting the specs. If I
 
 Future improvements may be a deeper pipeline, but the gains would be marginal. To make paralelism work, it would have to be a multi sample FIR. 
 
-## Report Sections Checklist (Course Rubric)
 
-1. MATLAB design flow and Verilog structure
-- FIR design method and specs: transition band, attenuation target, tap count choice.
-- Coefficient generation and export flow to RTL.
-- Verilog module structure and wrapper tops for each architecture.
-
-2. Frequency response and quantization analysis
-- Original (floating-point) vs quantized frequency response plots.
-- Passband ripple and stopband attenuation values.
-- Quantization sweep summary (bit width vs attenuation/ripple).
-- Overflow handling strategy: saturating fixed-point accumulation in RTL.
-
-3. Architecture description
-- Baseline serial FIR.
-- Serial pipelined FIR (two-stage partial-sum pipeline).
-- Reduced-complexity parallel FIR (L=2 and L=3).
-- Combined L=3 + pipelining configuration.
-
-4. Hardware implementation results
-- Area: logic elements, registers, DSP usage.
-- Performance: setup slack, derived Fmax or achieved Fmax.
-- Power: total/core dynamic/core static with confidence notes.
-
-5. Analysis and conclusion
-- Tradeoff discussion across architectures (PPA and accuracy).
-- Why the selected implementation is best for the target.
-- Limitations and future improvements.
-
-## Design Status
-- [ ] MATLAB filter design complete
-- [ ] Quantization analysis complete
-- [ ] Verilog RTL implementation complete
-- [ ] Testbench and simulation complete
-- [ ] Synthesis and timing analysis complete
-- [ ] Documentation complete
 
 
