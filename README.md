@@ -27,19 +27,35 @@ Low-pass FIR filter design and hardware implementation using MATLAB and Verilog.
 ```
 
 ## MATLAB Design & Verilog Architecture Description
-For the FIR design, the specs were given to us in the project, I can put those specs into 
+For the FIR design, the specs were given to us in the project, I can put those specs into the following lines in the matlab code
+
+``` 
+%% Design Specifications
+Fpass = 0.2;              % Passband edge (normalized frequency, 0.2π rad/sample)
+Fstop = 0.23;             % Stopband edge (normalized frequency, 0.23π rad/sample)
+Apass = 1;                % Passband ripple (dB)
+Astop = 80;               % Stopband attenuation (dB)
+num_taps = 100;           % Minimum number of taps
+
+%% Design both filters: fixed 100-tap and spec-meeting reference
+% Reference design lets MATLAB choose order to meet the ripple/attenuation spec.
 d = fdesign.lowpass('Fp,Fst,Ap,Ast', Fpass, Fstop, Apass, Astop);
+Hd_ref = design(d, 'equiripple');
+h_ref = Hd_ref.Numerator(:).';
+N_ref = length(h_ref);
+```
 
 and MATLAB creates a filter with those specs. 
 
 Park-McClellan design with weighted error to meet specs as closely as possible
-Stop band dominant, not good for audio.
+
+The Weights meant the design was Stop band dominant, not good for audio.
 
 ![Floating-Point Filter Comparison](results/figures/fig1_floatpoint_comparison.svg)
 
-The atlab code exports my quantized integers into a hex file that I am able to import into verilog. 
+The Matlab code exports my quantized integers into a hex file that I am able to import into verilog. 
 
-Verilog code I have a main base code, and a number of wrappers that change parameters so I can generate all my varients of the filter. 
+For the Verilog code I have a main base code, fir_filter.v, and a number of wrappers that change parameters so I can generate all my varients of the filter. 
 
 The FIR filter in verilog uses shift registers to maintain a sliding window of input samples. 
 
@@ -47,9 +63,14 @@ the MAC baseline is serialized and runs in a single clock cycle.
 
 Overflow handling is only done at the output stage if necesssary, internally the width is wide enough to prevent handling that step at every MAC, which would tank performance while making the chip larger. (tried it once and it could only run at 1MHz)
 
+My FPGA target was intels MAX10 10M50DAF484C7G, and it was targeted because it was one of the two FPGAs I had on hand, so it can be uploaded to it if we wanted to. 
+
+I did not compile to an asic, and that may give different results. 
 ## Filter Analysis
 
 ![Floating-Point vs Quantized Comparison](results/figures/fig3_quantized_vs_float.svg)
+
+To decide on the quantization size, I did a sweep of different sizes to find the minimal size to meet spec. this gave me a quantized size of 21.
 
 ### Quantization Sweep (10 to 24 bits)
 
@@ -73,7 +94,7 @@ Overflow handling is only done at the output stage if necesssary, internally the
 
 Reference filter minimum bits meeting 80.0 dB stopband: 21
 
-Fixed-100 filter does not meet 80.0 dB stopband in 10-20 bits.
+Fixed-100 filter does not meet 80.0 dB stopband at any tested quantization and also fails to meet spec with float. 
 
 === Summary ===
 
@@ -89,50 +110,19 @@ Reference quant (21-bit): stopband attn = 80.02 dB
 
 Fixed-100 float: passband ripple = 5.870 dB, stopband attn = 64.80 dB
 
-![Floating-Point vs Quantized Comparison](results/figures/fig3_quantized_vs_float.svg)
+![Floating-Point vs Quantized Comparison](results/figures/fig2_quantization_sweep.svg)
 
-3. **Architecture Documentation** - Pipelined and/or parallelized FIR filter design
-4. **Hardware Implementation Results** - Area, clock frequency, power estimation
-5. **Analysis & Conclusion** - Further analysis and project conclusions
 
-## Report Sections Checklist (Course Rubric)
+## Architecture Documentation
 
-1. MATLAB design flow and Verilog structure
-- FIR design method and specs: transition band, attenuation target, tap count choice.
-- Coefficient generation and export flow to RTL.
-- Verilog module structure and wrapper tops for each architecture.
+Both pipelined and parallelized FIR filters were used and can be switched between the two depending on the paramaters used when the module is called. 
 
-2. Frequency response and quantization analysis
-- Original (floating-point) vs quantized frequency response plots.
-- Passband ripple and stopband attenuation values.
-- Quantization sweep summary (bit width vs attenuation/ripple).
-- Overflow handling strategy: saturating fixed-point accumulation in RTL.
-
-3. Architecture description
 - Baseline serial FIR.
 - Serial pipelined FIR (two-stage partial-sum pipeline).
 - Reduced-complexity parallel FIR (L=2 and L=3).
 - Combined L=3 + pipelining configuration.
 
-4. Hardware implementation results
-- Area: logic elements, registers, DSP usage.
-- Performance: setup slack, derived Fmax or achieved Fmax.
-- Power: total/core dynamic/core static with confidence notes.
-
-5. Analysis and conclusion
-- Tradeoff discussion across architectures (PPA and accuracy).
-- Why the selected implementation is best for the target.
-- Limitations and future improvements.
-
-## Design Status
-- [ ] MATLAB filter design complete
-- [ ] Quantization analysis complete
-- [ ] Verilog RTL implementation complete
-- [ ] Testbench and simulation complete
-- [ ] Synthesis and timing analysis complete
-- [ ] Documentation complete
-
-## Architecture Comparison Summary
+## Architecture Implentation Results and Comparison Summary
 
 Use this table to summarize functional and hardware results for each required architecture.
 
@@ -172,3 +162,53 @@ Use this table to summarize functional and hardware results for each required ar
 - 100-tap (21-bit fixed) power source: Total Thermal Power = 129.14 mW with Low confidence (insufficient toggle rate data).
 - 100-tap fixed32 timing source: WNS = -14.231 ns at 10 ns constraint, giving derived Fmax about 41.3 MHz.
 - 100-tap fixed32 power source: Total Thermal Power = 135.66 mW with Low confidence (insufficient toggle rate data).
+
+## Analysis & Conclusion
+ I was surprised by how little the PPA deviated between the designs. It seems like compilaiton flags had more of an effect then changes in the verilog parameters. I noticed that with my chosen FPGA DSP usage did not work with the 21bit quantization, this would not be an issue with an ASIC. I did not build a float version, so I used a 32bit fixed to pretend to be that, even if its far simpler of a design. it still shows a dramatic size increase (and was able to use the DSPs which makes 1-1 comparisons not possible)
+   
+Parallizing the process did not significantly improve maximum clock speed as it did not address teh critical paths. There is also no increase in bandwidth as its still onlybeing fed a sample per unit. For paralleism to improve perofrmance it must injest 3 samples per unit time instead. 
+
+Due to the serial nature, pipelining caused the largest increase in performance, with two stages allowing the design to go from 34MHz to 73MHz, and 3 stages going up to 79MHz at a marginal power increase (141 mW -> 157 mW), althought it does 5x the register count. 
+
+The 3 stage serial design I think is the best design for meeting the specs. If I do not need the performance of 79Mhz, I strongly suspect I can lower the voltage and drop the power to below baseline while still being faster. 
+
+Future improvements may be a deeper pipeline, but the gains would be marginal. To make paralelism work, it would have to be a multi sample FIR. 
+
+## Report Sections Checklist (Course Rubric)
+
+1. MATLAB design flow and Verilog structure
+- FIR design method and specs: transition band, attenuation target, tap count choice.
+- Coefficient generation and export flow to RTL.
+- Verilog module structure and wrapper tops for each architecture.
+
+2. Frequency response and quantization analysis
+- Original (floating-point) vs quantized frequency response plots.
+- Passband ripple and stopband attenuation values.
+- Quantization sweep summary (bit width vs attenuation/ripple).
+- Overflow handling strategy: saturating fixed-point accumulation in RTL.
+
+3. Architecture description
+- Baseline serial FIR.
+- Serial pipelined FIR (two-stage partial-sum pipeline).
+- Reduced-complexity parallel FIR (L=2 and L=3).
+- Combined L=3 + pipelining configuration.
+
+4. Hardware implementation results
+- Area: logic elements, registers, DSP usage.
+- Performance: setup slack, derived Fmax or achieved Fmax.
+- Power: total/core dynamic/core static with confidence notes.
+
+5. Analysis and conclusion
+- Tradeoff discussion across architectures (PPA and accuracy).
+- Why the selected implementation is best for the target.
+- Limitations and future improvements.
+
+## Design Status
+- [ ] MATLAB filter design complete
+- [ ] Quantization analysis complete
+- [ ] Verilog RTL implementation complete
+- [ ] Testbench and simulation complete
+- [ ] Synthesis and timing analysis complete
+- [ ] Documentation complete
+
+
